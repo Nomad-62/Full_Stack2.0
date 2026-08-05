@@ -1,0 +1,69 @@
+import { createSlice, createAsyncThunk, createEntityAdapter } from '@reduxjs/toolkit';
+import { mockApi } from '../../services/mockApi';
+
+const platformsAdapter = createEntityAdapter();
+
+const initialState = platformsAdapter.getInitialState({
+  status: 'idle',
+  error: null,
+  selectedPlatformId: null,
+});
+
+// Async thunks
+export const fetchPlatforms = createAsyncThunk('platforms/fetchPlatforms', async () => {
+  const response = await mockApi.fetchPlatforms();
+  return response;
+});
+
+export const togglePlatformStatus = createAsyncThunk(
+  'platforms/toggleStatus',
+  async (platformId) => {
+    const response = await mockApi.togglePlatform(platformId);
+    return response;
+  }
+);
+
+const platformsSlice = createSlice({
+  name: 'platforms',
+  initialState,
+  reducers: {
+    selectPlatform: (state, action) => {
+      state.selectedPlatformId = action.payload;
+    },
+    clearPlatformSelection: (state) => {
+      state.selectedPlatformId = null;
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchPlatforms.pending, (state) => {
+        state.status = 'loading';
+      })
+      .addCase(fetchPlatforms.fulfilled, (state, action) => {
+        state.status = 'succeeded';
+        platformsAdapter.setAll(state, action.payload);
+      })
+      .addCase(fetchPlatforms.rejected, (state, action) => {
+        state.status = 'failed';
+        state.error = action.error.message;
+      })
+      .addCase(togglePlatformStatus.fulfilled, (state, action) => {
+        platformsAdapter.upsertOne(state, action.payload);
+      });
+  },
+});
+
+export const { selectPlatform, clearPlatformSelection } = platformsSlice.actions;
+
+export const {
+  selectAll: selectAllPlatforms,
+  selectById: selectPlatformById,
+  selectIds: selectPlatformIds,
+} = platformsAdapter.getSelectors((state) => state.platforms);
+
+export const selectPlatformsStatus = (state) => state.platforms.status;
+export const selectActivePlatforms = (state) =>
+  selectAllPlatforms(state).filter((platform) => platform.isActive);
+export const selectSelectedPlatformId = (state) => state.platforms.selectedPlatformId;
+
+export default platformsSlice.reducer;
